@@ -1,0 +1,16 @@
+{
+    "name": "okky/wc-product-image-replacer",
+    "description": "Woocommerce extensions plugin for handling product image & gallery image replacement, backup old image, and clean database from old image",
+    "type": "project",
+    "authors": [
+        {
+            "name": "okkyAdiansyah",
+            "email": "okkyadiansyah.0610@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-4": {"WPIR\\" : "./src/include"}
+    }
+}
