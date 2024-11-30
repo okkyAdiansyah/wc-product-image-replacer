@@ -11,5 +11,8 @@ if( ! defined( 'ABSPATH' ) ){
 }
 
 class ProductManager{
-    
+    /**
+     * @var Object $zip ZipArchive
+     * @var 
+     */
 }
