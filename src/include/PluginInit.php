@@ -5,11 +5,13 @@
  * @package  WC Product Image Replacer
  */
 namespace WPIR;
-use \ZipArchive;
 
 if( ! defined( "ABSPATH" ) ){
     exit;
 }
+
+use \ZipArchive;
+use WPIR\Services\DirectoryManager;
 
 class PluginInit{
     /**
@@ -19,7 +21,7 @@ class PluginInit{
      */
     public static function wpir_init(){
         add_action( 'admin_menu', array( self::class, 'wpir_register_menu' ), 10 );
-        add_action( 'wp_ajax_replace_images', array( self::class, 'wpir_handle_image_replacement' ) );
+        add_action( 'wp_ajax_handle_zip_verification', array( self::class, 'wpir_handle_zip_verification' ) );
     }
 
     /**
@@ -131,34 +133,17 @@ class PluginInit{
     }
 
     /**
-     * Ajax handler for image replacement
+     * Handle ajax zip file verification process
      * 
      * @return void
      */
-    public static function wpir_handle_image_replacement(){
-        // Check ajax handler and nonce
-        check_ajax_referer( 'replace_images', 'wpir_nonce' );
-
-        $uploaded_file = $_FILES['images'];
-
-        // Check if ZipArchive exists
-        if( ! class_exists( 'ZipArchive' ) ){
-            wp_send_json( 'PHP ZipArchive extension is not installed.', 500);
-            error_log( 'PHP ZipArchive extension is not installed' );
+    public static function wpir_handle_zip_verification(){
+        // Verified nonce
+        if( ! isset( $_SERVER['HTTP_X_WP_NONCE'] ) || ! wp_verify_nonce( $_SERVER['HTTP_X_WP_NONCE'], 'wpir_unique_nonce' )){
+            wp_send_json_error( 'Unauthorized request', 401 );
         }
 
-        $zip = new \ZipArchive();
-        $wp_upload_dir = wp_upload_dir();
-        $wpir_replace_image_dir = $wp_upload_dir['basedir'] . '/replace_image';
-        $zip_path = $wp_upload_dir['path'] . '/' . $uploaded_file['name'];
-
-        // Move uploaded file to zip path
-        move_uploaded_file( $uploaded_file['tmp_name'], $zip_path );
-        if( $zip->open( $zip_path ) !== true ){
-            wp_send_json_error('Failed to open zip file.', 500);
-        }
-
-        $zip->extract_to( $wpir_replace_image_dir );
-        $zip->close();
+        $dir_manager = new DirectoryManager( $_FILES['images'] );
+        $dir_manager->wpir_zip_move_and_extract();
     }
 }
