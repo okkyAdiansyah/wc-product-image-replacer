@@ -5,6 +5,7 @@
  * @package  WC Product Image Replacer
  */
 namespace WPIR;
+use \ZipArchive;
 
 if( ! defined( "ABSPATH" ) ){
     exit;
@@ -18,7 +19,7 @@ class PluginInit{
      */
     public static function wpir_init(){
         add_action( 'admin_menu', array( self::class, 'wpir_register_menu' ), 10 );
-        // add_action( 'wp_ajax_replace_images', array( self::class, 'wpir_handle_image_replacement' ) );
+        add_action( 'wp_ajax_replace_images', array( self::class, 'wpir_handle_image_replacement' ) );
     }
 
     /**
@@ -101,7 +102,7 @@ class PluginInit{
                     <label for="images">Upload Images (Zip file containing folders for each product ID):</label>
                     <input type="file" id="images" name="images" accept=".zip" required>
                     
-                    <?php wp_nonce_field('replace_images', 'product_image_manager_nonce'); ?>
+                    <?php wp_nonce_field('replace_images', 'wpir_nonce'); ?>
                     
                     <button type="submit">Replace Images</button>
                 </form>
@@ -135,6 +136,29 @@ class PluginInit{
      * @return void
      */
     public static function wpir_handle_image_replacement(){
+        // Check ajax handler and nonce
+        check_ajax_referer( 'replace_images', 'wpir_nonce' );
 
+        $uploaded_file = $_FILES['images'];
+
+        // Check if ZipArchive exists
+        if( ! class_exists( 'ZipArchive' ) ){
+            wp_send_json( 'PHP ZipArchive extension is not installed.', 500);
+            error_log( 'PHP ZipArchive extension is not installed' );
+        }
+
+        $zip = new \ZipArchive();
+        $wp_upload_dir = wp_upload_dir();
+        $wpir_replace_image_dir = $wp_upload_dir['basedir'] . '/replace_image';
+        $zip_path = $wp_upload_dir['path'] . '/' . $uploaded_file['name'];
+
+        // Move uploaded file to zip path
+        move_uploaded_file( $uploaded_file['tmp_name'], $zip_path );
+        if( $zip->open( $zip_path ) !== true ){
+            wp_send_json_error('Failed to open zip file.', 500);
+        }
+
+        $zip->extract_to( $wpir_replace_image_dir );
+        $zip->close();
     }
 }
