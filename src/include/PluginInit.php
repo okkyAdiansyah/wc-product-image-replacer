@@ -22,6 +22,7 @@ class PluginInit{
     public static function wpir_init(){
         add_action( 'admin_menu', array( self::class, 'wpir_register_menu' ), 10 );
         add_action( 'wp_ajax_handle_zip_verification', array( self::class, 'wpir_handle_zip_verification' ) );
+        add_action( 'admin_enqueue_scripts', array( self::class, 'wpir_enqueue_scripts' ), 10 );
     }
 
     /**
@@ -35,12 +36,18 @@ class PluginInit{
          * @var string $wpir_replace_image_dir Define plugin new upload directory
          */
         $wp_upload_dir = wp_get_upload_dir(  );
-        $wpir_replace_image_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'replace_image';
+        $wpir_upload_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'wpir_upload';
+        $wpir_download_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'wpir_download';
 
         // Check if plugin replace image directory is not exists
         // If true, create new directory
-        if( ! file_exists( $wpir_replace_image_dir ) ){
-            if( ! mkdir( $wpir_replace_image_dir, 0755, true ) ){
+        if( ! file_exists( $wpir_upload_dir ) ){
+            if( ! mkdir( $wpir_upload_dir, 0755, true ) ){
+                wp_die( 
+                    __( 'Failed to create the "Replace Image" directory in wpir_activate_plugin.', 'wpir' )
+                );
+            }
+            if( ! mkdir( $wpir_download_dir, 0755, true ) ){
                 wp_die( 
                     __( 'Failed to create the "Replace Image" directory in wpir_activate_plugin.', 'wpir' )
                 );
@@ -61,12 +68,16 @@ class PluginInit{
          * @var string $wpir_replace_image_dir Define plugin new upload directory
          */
         $wp_upload_dir = wp_get_upload_dir(  );
-        $wpir_replace_image_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'replace_image';
+        $wpir_upload_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'wpir_upload';
+        $wpir_download_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'wpir_download';
 
         // Check if plugin replace image directory is exists
         // If true, remove directory
-        if( file_exists( $wpir_replace_image_dir ) ){
-            rmdir( $wpir_replace_image_dir );
+        if( file_exists( $wpir_upload_dir ) ){
+            rmdir( $wpir_upload_dir );
+        }
+        if( file_exists( $wpir_download_dir ) ){
+            rmdir( $wpir_download_dir );
         }
 
     }
@@ -94,42 +105,32 @@ class PluginInit{
      * @return void
      */
     public static function wpir_render_main_admin_page(){
-        ?>
-            <div class="wrap">
-                <h1>Product Image Manager</h1>
-                <form id="product-image-manager-form" method="post" enctype="multipart/form-data">
-                    <label for="product_ids">Enter Product IDs (comma-separated):</label>
-                    <input type="text" id="product_ids" name="product_ids" required>
-                    
-                    <label for="images">Upload Images (Zip file containing folders for each product ID):</label>
-                    <input type="file" id="images" name="images" accept=".zip" required>
-                    
-                    <?php wp_nonce_field('replace_images', 'wpir_nonce'); ?>
-                    
-                    <button type="submit">Replace Images</button>
-                </form>
-            </div>
-            <script>
-                jQuery('#product-image-manager-form').on('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(this);
-                    jQuery.ajax({
-                        url: ajaxurl,
-                        type: 'POST',
-                        processData: false,
-                        contentType: false,
-                        data: formData,
-                        success: function(response) {
-                            alert(response.data);
-                        },
-                        error: function(error) {
-                            alert('An error occurred: ' + error.responseText);
-                        }
-                    });
-                });
-            </script>
-        <?php
+        require plugin_dir_path( dirname( __FILE__, 2 ) ) . 'src/admin/main-admin.php';
+    }
+
+    /**
+     * Plugin enqueue script
+     * 
+     * @return void
+     */
+    public static function wpir_enqueue_scripts(){
+        wp_enqueue_script( 
+            'wpir-main-script', 
+            plugin_dir_url( dirname( __FILE__, 1 ) ) . 'assets/scripts/wpir-admin.js',
+            array( 'jquery' ), 
+            false
+        );
+
+        wp_localize_script( 
+            'wpir-main-script', 
+            'wpir_ajax_object',
+            array(
+                'ajax_url' => admin_url( 'admin-ajax.php' ),
+                'wpir_uploading_nonce' => wp_create_nonce( 'wpir_uploading_nonce' ),
+                'wpir_replace_image_nonce' => wp_create_nonce( 'wpir_replace_image_nonce' ),
+                'wpir_download_backup_nonce' => wp_create_nonce( 'wpir_download_backup_nonce' )
+            ) 
+        );
     }
 
     /**
@@ -138,10 +139,7 @@ class PluginInit{
      * @return void
      */
     public static function wpir_handle_zip_verification(){
-        // Verified nonce
-        if( ! isset( $_SERVER['HTTP_X_WP_NONCE'] ) || ! wp_verify_nonce( $_SERVER['HTTP_X_WP_NONCE'], 'wpir_unique_nonce' )){
-            wp_send_json_error( 'Unauthorized request', 401 );
-        }
+        check_ajax_referer( 'wpir_uploading_nonce', 'wpir_nonce');
 
         $dir_manager = new DirectoryManager( $_FILES['images'] );
         $dir_manager->wpir_zip_move_and_extract();
