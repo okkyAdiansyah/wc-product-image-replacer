@@ -1,0 +1,48 @@
+.wpir__loading{
+    padding: 1.2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    column-gap: 1.2rem;
+    display: none;
+
+    .wpir__loader {
+        width: 32px;
+        height: 32px;
+        border: 8px solid #929292;
+        border-bottom-color: #2271b1;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+    }
+    
+    p{
+        font-size: 24px;
+    }
+}
+
+.wpir-replace{
+    display: none;
+    margin-top: 1.2rem;
+    align-items: center;
+    justify-content: space-between;
+    row-gap: 1.2rem;
+    flex-direction: column;
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    padding: 30px;
+
+    p{
+        font-size: 20px;
+    }
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}

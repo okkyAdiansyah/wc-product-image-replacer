@@ -11,6 +11,7 @@ if( ! defined( 'ABSPATH' ) ){
 }
 
 use \ZipArchive;
+use \DirectoryIterator;
 
 class DirectoryManager{
     /**
@@ -40,7 +41,7 @@ class DirectoryManager{
     }
 
     /**
-     * Ajax handler for moving uploaded file to plugin directory and extract it
+     * Handler for moving uploaded file to plugin directory and extract it
      * 
      * @return void
      */
@@ -80,12 +81,85 @@ class DirectoryManager{
             wp_send_json_error('Failed to open zip file: ' . $errorMessage, 500);
         }
     
-        // Extract the zip contents
-        if (!$this->zip->extractTo($this->wpir_upload_dir)) {
-            wp_send_json_error('Failed to extract zip file.', 500);
+        // Extract files manually while removing the first-level directory
+        for ($i = 0; $i < $this->zip->numFiles; $i++) {
+            $zip_entry = $this->zip->getNameIndex($i);
+
+            // Skip directories and hidden files
+            if (substr($zip_entry, -1) === '/' || strpos(basename($zip_entry), '.') === 0) {
+                continue;
+            }
+
+            // Remove the first-level directory from the path
+            $path_parts = explode('/', $zip_entry);
+            array_shift($path_parts); // Remove the first-level directory
+            $relative_path = implode('/', $path_parts);
+
+            // Build the destination path inside wpir_upload_dir
+            $dest_path = $this->wpir_upload_dir . '/' . $relative_path;
+
+            // Ensure the directory exists
+            if (!file_exists(dirname($dest_path))) {
+                mkdir(dirname($dest_path), 0755, true);
+            }
+
+            // Write the extracted file to the destination
+            $file_content = $this->zip->getFromIndex($i);
+            if (!file_put_contents($dest_path, $file_content)) {
+                wp_send_json_error('Failed to extract file: ' . $relative_path, 500);
+            }
         }
         $this->zip->close();
     
         return true;
+    }
+
+    /**
+     * Handle third level subdirectories file verification
+     * Checking if file have correct format
+     * 
+     * @param string $subdir_name Sub-directories name
+     * 
+     * @return void
+     */
+
+    /**
+     * Handle second level subdirectories verification
+     * Checking if first level subdirectory contain this subdirectory
+     * 
+     * @param string $subdir_name Sub-directories name
+     * 
+     * @return void
+     */
+
+    /**
+     * Handle first level subdirectories
+     * 
+     * @return array
+     */
+    private function wpir_get_first_subdir(){
+        $dir_path = rtrim( $this->wpir_upload_dir );
+        $files = new DirectoryIterator( $dir_path );
+
+        $subdir_as_product_id = array();
+
+        foreach( $files as $file ){
+            if( $file->isDir() && ! $file->isDot() ){
+                $subdir_as_product_id[] = $file->getFilename(); 
+            }
+        }
+
+        return $subdir_as_product_id;
+    }
+
+    /**
+     * Verified uploaded file content
+     * 
+     * @return void
+     */
+    public function wpir_verified_file_content(){
+        $product_id = $this->wpir_get_first_subdir();
+
+        wp_send_json_success( $product_id, 200 );
     }
 }
