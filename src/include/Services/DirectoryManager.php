@@ -12,6 +12,7 @@ if( ! defined( 'ABSPATH' ) ){
 
 use \ZipArchive;
 use \DirectoryIterator;
+use WPIR\WPIR_Dirs_Response;
 
 class DirectoryManager{
     /**
@@ -110,46 +111,29 @@ class DirectoryManager{
             }
         }
         $this->zip->close();
-    
-        return true;
     }
 
     /**
-     * Handle third level subdirectories file verification
-     * Checking if file have correct format
+     * Get file content based on parent dir name
      * 
-     * @param string $subdir_name Sub-directories name
+     * @param string $dir_path Targeted dir path
      * 
-     * @return void
+     * @return array Name of the directory
      */
+    private function wpir_get_dir_content( $dir_path ){
+        $dir_contents = array();
+        $dir_entries = new DirectoryIterator( $dir_path ); // Directory entry to iterate the content
+        
+        foreach( $dir_entries as $entry ){
 
-    /**
-     * Handle second level subdirectories verification
-     * Checking if first level subdirectory contain this subdirectory
-     * 
-     * @param string $subdir_name Sub-directories name
-     * 
-     * @return void
-     */
-
-    /**
-     * Handle first level subdirectories
-     * 
-     * @return array
-     */
-    private function wpir_get_first_subdir(){
-        $dir_path = rtrim( $this->wpir_upload_dir );
-        $files = new DirectoryIterator( $dir_path );
-
-        $subdir_as_product_id = array();
-
-        foreach( $files as $file ){
-            if( $file->isDir() && ! $file->isDot() ){
-                $subdir_as_product_id[] = $file->getFilename(); 
+            if( $entry->isDot() ){
+                continue; // Skip '.' and '..' directory
             }
+
+            $dir_contents[] = $entry->getFilename();
         }
 
-        return $subdir_as_product_id;
+        return $dir_contents;
     }
 
     /**
@@ -158,8 +142,43 @@ class DirectoryManager{
      * @return void
      */
     public function wpir_verified_file_content(){
-        $product_id = $this->wpir_get_first_subdir();
+        $contents = array();
 
-        wp_send_json_success( $product_id, 200 );
+        // Get all directory name from plugin upload directory
+        $parent_path = $this->wpir_upload_dir;
+        $parent_dirs = $this->wpir_get_dir_content( $parent_path );
+
+        // Create new object for each directory
+        foreach( $parent_dirs as $parent_dir ){
+            $dir = new WPIR_Dirs_Response( $parent_dir );
+            
+            // Get all first level subdirectories
+            $first_subdir_path = trailingslashit( $parent_path ) . $parent_dir;
+            $first_subdirs = $this->wpir_get_dir_content( $first_subdir_path );
+            
+            // Verify if expected directories is exist
+            if( in_array( 'main', $first_subdirs ) ){
+                $dir->wpir_exp_dir_exist( 'main', true );
+                $main_img_dir_path = trailingslashit( $first_subdir_path ) . 'main';
+
+                // Get image file from main dir
+                $main_image = $this->wpir_get_dir_content( $main_img_dir_path );
+                $dir->wpir_assign_filename( 'main', $main_image );
+            }
+            if( in_array( 'gallery', $first_subdirs ) ){
+                $dir->wpir_exp_dir_exist( 'gallery', true );
+                $gallery_img_dir_path = trailingslashit( $first_subdir_path ) . 'gallery';
+
+                
+                // Get image file from gallery dir
+                $gallery_image = $this->wpir_get_dir_content( $gallery_img_dir_path );
+                $dir->wpir_assign_filename( 'gallery', $gallery_image );
+            }
+
+            // Push dir object to content container
+            $contents[] = $dir;
+        }
+
+        wp_send_json_success( $contents, 200 );
     }
 }

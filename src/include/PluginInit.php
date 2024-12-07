@@ -79,7 +79,6 @@ class PluginInit{
         if( file_exists( $wpir_download_dir ) ){
             rmdir( $wpir_download_dir );
         }
-
     }
 
     /**
@@ -148,5 +147,7 @@ class PluginInit{
 
         $dir_manager = new DirectoryManager( $_FILES['images'] );
         $dir_manager->wpir_zip_move_and_extract();
+
+        $dir_manager->wpir_verified_file_content();
     }
 }
