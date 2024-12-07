@@ -89,8 +89,8 @@ class PluginInit{
      */
     public static function wpir_register_menu(){
         add_menu_page( 
-            __( 'WC Product Image Replacer', 'wpir' ), 
-            __( 'WC Product Image Replacer', 'wpir' ), 
+            __( 'WPIR', 'wpir' ), 
+            __( 'WPIR', 'wpir' ), 
             'manage_options', 
             'wpir', 
             array( self::class, 'wpir_render_main_admin_page' ), 
@@ -119,6 +119,11 @@ class PluginInit{
             plugin_dir_url( dirname( __FILE__, 1 ) ) . 'assets/scripts/wpir-admin.js',
             array( 'jquery' ), 
             false
+        );
+
+        wp_enqueue_style( 
+            'wpir-main-style', 
+            plugin_dir_url( dirname( __FILE__, 1 ) ) . 'assets/styles/wpir-main-styles.css' 
         );
 
         wp_localize_script( 
