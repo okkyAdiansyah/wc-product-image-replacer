@@ -12,6 +12,7 @@ if( ! defined( "ABSPATH" ) ){
 
 use \ZipArchive;
 use WPIR\Services\DirectoryManager;
+use WPIR\Services\ProductManager;
 
 class PluginInit{
     /**
